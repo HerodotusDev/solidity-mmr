@@ -1,0 +1,15 @@
+{
+  "name": "solidity-mmr",
+  "version": "1.0.0",
+  "description": "Solidity Merkle Mountain Range library",
+  "repository": "git@github.com:HerodotusDev/solidity-mmr.git",
+  "author": "Herodotus Ltd",
+  "license": "GPL-3.0",
+  "private": false,
+  "dependencies": {
+    "@herodotus_dev/mmr-core": "^1.1.12",
+    "@herodotus_dev/mmr-hashes": "^1.1.14",
+    "@herodotus_dev/mmr-memory": "^1.1.12",
+    "ethers": "^5.7.2"
+  }
+}
