@@ -12,13 +12,12 @@
 
 Pre-requisites:
 
+- yarn
 - Node.js
-
 - Solidity compiler (solc)
-
 - Foundry
 
-Note: this library can be directly inlined in your contracts and doesn't need to be deployed separetely.
+_Note: this library can be directly inlined in your contracts and doesn't need to be deployed separately as all functions visibility are internal pure._
 
 ## Quick Start
 
@@ -158,4 +157,4 @@ const numberStringToBytes32 = (numberAsString) =>
 
 ---
 
-Herodotous Ltd
+Herodotus Ltd - 2023

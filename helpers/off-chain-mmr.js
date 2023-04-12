@@ -20,26 +20,19 @@ async function main() {
 
   const results = [];
 
-  if (providedHashes) {
-    const providedHashes = process.argv[4].split(";");
-    let rootHash = "";
-    for (let idx = 0; idx < providedHashes.length; ++idx) {
-      const result = await mmr.append(providedHashes[idx]);
-      rootHash = result.rootHash;
-    }
-    console.log(encoder.encode(["bytes32"], [rootHash]));
-    process.exit();
-  }
+  const elements = providedHashes
+    ? providedHashes.split(";")
+    : new Array(iterations).fill(0).map((_, idx) => (idx + 1).toString());
 
-  for (let idx = 0; idx < iterations; ++idx) {
-    const result = await mmr.append((idx + 1).toString());
+  for (let idx = 0; idx < elements.length; ++idx) {
+    const result = await mmr.append(elements[idx]);
 
     if (shouldGenerateProofs) {
       const peaks = await mmr.getPeaks();
       const proof = await mmr.getProof(result.leafIndex);
       results.push({
         index: result.leafIndex.toString(),
-        value: numberStringToBytes32((idx + 1).toString()),
+        value: numberStringToBytes32(elements[idx]),
         proof: proof.siblingsHashes,
         peaks,
         pos: result.elementsCount.toString(),
@@ -71,7 +64,14 @@ async function main() {
     process.stdout.write(outputs.join(";"));
   } else {
     // Print the root hashes to the standard output
-    console.log(encoder.encode(["bytes32[]"], [results]));
+    const onlySendFinalRootHash = process.argv[5] === "true";
+
+    console.log(
+      encoder.encode(
+        onlySendFinalRootHash ? ["bytes32"] : ["bytes32[]"],
+        onlySendFinalRootHash ? [results[results.length - 1]] : [results]
+      )
+    );
   }
 }
 
@@ -85,4 +85,4 @@ function numberStringToBytes32(numberAsString) {
   return hexString;
 }
 
-main();
+main().catch(console.error);

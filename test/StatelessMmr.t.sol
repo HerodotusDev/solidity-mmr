@@ -719,8 +719,48 @@ contract StatelessMmrLib_Test is Test {
         return string.concat("0x", string(hashString));
     }
 
-    function testMmrLibWithFuzzing(bytes32[] memory randomBytes) public {
+    function testMmrLibAppendsWithFuzzing(bytes32[] memory randomBytes) public {
         vm.assume(randomBytes.length > 0 && randomBytes.length <= 100);
+
+        string[] memory randomHashesStr = new string[](randomBytes.length);
+        bytes32[] memory randomHashes = new bytes32[](randomBytes.length);
+        string memory randomHashesConcat = "";
+        for (uint i = 0; i < randomBytes.length; ++i) {
+            randomHashesStr[i] = keccak256ToString(
+                keccak256(abi.encode(randomBytes[i]))
+            ); // As string
+            randomHashes[i] = keccak256(abi.encode(randomBytes[i])); // As bytes
+            randomHashesConcat = string.concat(
+                randomHashesConcat,
+                randomHashesStr[i]
+            );
+            if (i + 1 != randomBytes.length) {
+                randomHashesConcat = string.concat(randomHashesConcat, ";");
+            }
+        }
+        assertEq(randomHashesStr.length, randomBytes.length);
+
+        string[] memory inputs = new string[](6);
+        inputs[0] = "node";
+        inputs[1] = "./helpers/off-chain-mmr.js";
+        inputs[2] = "-1"; // Unused
+        inputs[3] = "false"; // Do not generate proofs
+        inputs[4] = randomHashesConcat; // Pass random hashes to node.js (elements to append)
+        inputs[5] = "true"; // Ask node.js to only send the final root hash
+        bytes memory output = vm.ffi(inputs);
+        bytes32 finalRootHash = abi.decode(output, (bytes32));
+
+        (, bytes32 rootHash) = StatelessMmr.multiAppend(
+            randomHashes,
+            new bytes32[](0),
+            0,
+            0
+        );
+        assertEq(rootHash, finalRootHash);
+    }
+
+    function testMmrLibProofsWithFuzzing(bytes32[] memory randomBytes) public {
+        vm.assume(randomBytes.length > 1 && randomBytes.length <= 100);
 
         string[] memory randomHashesStr = new string[](randomBytes.length);
         bytes32[] memory randomHashes = new bytes32[](randomBytes.length);
@@ -744,17 +784,33 @@ contract StatelessMmrLib_Test is Test {
         inputs[0] = "node";
         inputs[1] = "./helpers/off-chain-mmr.js";
         inputs[2] = "-1"; // Unused
-        inputs[3] = "false";
-        inputs[4] = randomHashesConcat; // Pass random bytes to node.js
-        bytes memory output = vm.ffi(inputs);
-        bytes32 finalRootHash = abi.decode(output, (bytes32));
+        inputs[3] = "true"; // Ask node.js to generate proofs
+        inputs[4] = randomHashesConcat; // Pass random hashes to node.js (elements to append)
 
-        (, bytes32 rootHash) = StatelessMmr.multiAppend(
-            randomHashes,
-            new bytes32[](0),
-            0,
-            0
+        bytes memory output = vm.ffi(inputs);
+        string[] memory outputStrings = createStringArray(
+            randomHashesStr.length,
+            output,
+            ";"
         );
-        assertEq(rootHash, finalRootHash);
+        assertEq(outputStrings.length, randomHashesStr.length);
+
+        for (uint i = 0; i < outputStrings.length; ++i) {
+            string memory s = outputStrings[i];
+            (
+                uint index,
+                bytes32 value,
+                bytes32[] memory proof,
+                bytes32[] memory peaks,
+                uint pos,
+                bytes32 root
+            ) = abi.decode(
+                    hexStringToBytesMemory(substr(s, 2)),
+                    (uint, bytes32, bytes32[], bytes32[], uint, bytes32)
+                );
+
+            // Verify proof
+            StatelessMmr.verifyProof(index, value, proof, peaks, pos, root);
+        }
     }
 }
