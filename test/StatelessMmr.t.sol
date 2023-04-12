@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.17;
 
-import {console} from "forge-std/console.sol";
 import {Test} from "forge-std/Test.sol";
 
 import {StatelessMmr} from "../src/lib/StatelessMmr.sol";
@@ -565,7 +564,7 @@ contract StatelessMmrLib_Test is Test {
     function testMmrLibInteroperabilityAppends() public {
         string[] memory inputs = new string[](3);
         inputs[0] = "node";
-        inputs[1] = "./helpers/off_chain_mmr.js";
+        inputs[1] = "./helpers/off-chain-mmr.js";
         inputs[2] = "100"; // Number of append to perform
         bytes memory output = vm.ffi(inputs);
         bytes32[] memory rootHashes = abi.decode(output, (bytes32[]));
@@ -679,7 +678,7 @@ contract StatelessMmrLib_Test is Test {
     function testMmrLibInteroperabilityProofs() public {
         string[] memory inputs = new string[](4);
         inputs[0] = "node";
-        inputs[1] = "./helpers/off_chain_mmr.js";
+        inputs[1] = "./helpers/off-chain-mmr.js";
         inputs[2] = "100"; // Number of append to perform
         inputs[3] = "true"; // Ask node.js to generate proofs
         bytes memory output = vm.ffi(inputs);
@@ -704,5 +703,58 @@ contract StatelessMmrLib_Test is Test {
             // Verify proof
             StatelessMmr.verifyProof(index, value, proof, peaks, pos, root);
         }
+    }
+
+    function keccak256ToString(
+        bytes32 hash
+    ) internal pure returns (string memory) {
+        bytes memory hashString = new bytes(64);
+        string memory characters = "0123456789abcdef";
+
+        for (uint256 i = 0; i < 32; i++) {
+            hashString[i * 2] = bytes(characters)[(uint8(hash[i]) / 16) & 0x0F];
+            hashString[i * 2 + 1] = bytes(characters)[uint8(hash[i]) & 0x0F];
+        }
+
+        return string.concat("0x", string(hashString));
+    }
+
+    function testMmrLibWithFuzzing(bytes32[] memory randomBytes) public {
+        vm.assume(randomBytes.length > 0 && randomBytes.length <= 100);
+
+        string[] memory randomHashesStr = new string[](randomBytes.length);
+        bytes32[] memory randomHashes = new bytes32[](randomBytes.length);
+        string memory randomHashesConcat = "";
+        for (uint i = 0; i < randomBytes.length; ++i) {
+            randomHashesStr[i] = keccak256ToString(
+                keccak256(abi.encode(randomBytes[i]))
+            ); // As string
+            randomHashes[i] = keccak256(abi.encode(randomBytes[i])); // As bytes
+            randomHashesConcat = string.concat(
+                randomHashesConcat,
+                randomHashesStr[i]
+            );
+            if (i + 1 != randomBytes.length) {
+                randomHashesConcat = string.concat(randomHashesConcat, ";");
+            }
+        }
+        assertEq(randomHashesStr.length, randomBytes.length);
+
+        string[] memory inputs = new string[](5);
+        inputs[0] = "node";
+        inputs[1] = "./helpers/off-chain-mmr.js";
+        inputs[2] = "-1"; // Unused
+        inputs[3] = "false";
+        inputs[4] = randomHashesConcat; // Pass random bytes to node.js
+        bytes memory output = vm.ffi(inputs);
+        bytes32 finalRootHash = abi.decode(output, (bytes32));
+
+        (, bytes32 rootHash) = StatelessMmr.multiAppend(
+            randomHashes,
+            new bytes32[](0),
+            0,
+            0
+        );
+        assertEq(rootHash, finalRootHash);
     }
 }

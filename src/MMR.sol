@@ -4,6 +4,7 @@ pragma solidity ^0.8.17;
 import "./interfaces/MMRTree.sol";
 import "./lib/StatelessMmr.sol";
 
+// This is an example contract on how to use the library
 contract MMR is MMRTree {
     bytes32 treeRoot; // Root hash of the tree
 

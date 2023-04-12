@@ -3,16 +3,6 @@ const { default: CoreMMR } = require("@herodotus_dev/mmr-core");
 const { KeccakHasher } = require("@herodotus_dev/mmr-hashes");
 const { default: MMRInMemoryStore } = require("@herodotus_dev/mmr-memory");
 
-function numberStringToBytes32(numberAsString) {
-  // Convert the number string to a BigNumber
-  const numberAsBigNumber = BigNumber.from(numberAsString);
-
-  // Convert the BigNumber to a zero-padded hex string
-  const hexString = utils.hexZeroPad(numberAsBigNumber.toHexString(), 32);
-
-  return hexString;
-}
-
 async function main() {
   const store = new MMRInMemoryStore();
   const hasher = new KeccakHasher();
@@ -26,7 +16,21 @@ async function main() {
 
   const shouldGenerateProofs = process.argv[3] === "true";
 
+  const providedHashes = process.argv[4];
+
   const results = [];
+
+  if (providedHashes) {
+    const providedHashes = process.argv[4].split(";");
+    let rootHash = "";
+    for (let idx = 0; idx < providedHashes.length; ++idx) {
+      const result = await mmr.append(providedHashes[idx]);
+      rootHash = result.rootHash;
+    }
+    console.log(encoder.encode(["bytes32"], [rootHash]));
+    process.exit();
+  }
+
   for (let idx = 0; idx < iterations; ++idx) {
     const result = await mmr.append((idx + 1).toString());
 
@@ -69,6 +73,16 @@ async function main() {
     // Print the root hashes to the standard output
     console.log(encoder.encode(["bytes32[]"], [results]));
   }
+}
+
+function numberStringToBytes32(numberAsString) {
+  // Convert the number string to a BigNumber
+  const numberAsBigNumber = BigNumber.from(numberAsString);
+
+  // Convert the BigNumber to a zero-padded hex string
+  const hexString = utils.hexZeroPad(numberAsBigNumber.toHexString(), 32);
+
+  return hexString;
 }
 
 main();
