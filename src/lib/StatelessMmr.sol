@@ -170,8 +170,7 @@ library StatelessMmr {
             revert InvalidRoot();
         }
 
-        bytes32 hash = keccak256(abi.encode(index, value));
-        bytes32 topPeak = getProofTopPeak(0, hash, index, proof);
+        bytes32 topPeak = getProofTopPeak(0, value, index, proof);
 
         bool isValid = StatelessMmrHelpers.arrayContains(topPeak, peaks);
         if (!isValid) {
@@ -237,7 +236,7 @@ library StatelessMmr {
     ) internal pure returns (uint, bytes32, bytes32[] memory) {
         uint elementsCount = lastElementsCount + 1;
         if (lastElementsCount == 0) {
-            bytes32 root0 = keccak256(abi.encode(uint(1), elem));
+            bytes32 root0 = elem;
             bytes32 firstRoot = keccak256(abi.encode(uint(1), root0));
             bytes32[] memory newPeaks = new bytes32[](1);
             newPeaks[0] = root0;
@@ -249,10 +248,9 @@ library StatelessMmr {
             revert InvalidRoot();
         }
 
-        bytes32 hash = keccak256(abi.encode(elementsCount, elem));
         bytes32[] memory appendPeaks = StatelessMmrHelpers.newArrWithElem(
             peaks,
-            hash
+            elem
         );
         (bytes32[] memory updatedPeaks, uint updatedElementsCount) = appendRec(
             0,
@@ -283,14 +281,11 @@ library StatelessMmr {
             uint peaks_len = peaks.length - 2;
 
             bytes32 hash = keccak256(abi.encode(leftHash, rightHash));
-            bytes32 parentHash = keccak256(
-                abi.encodePacked(elementsCount, hash)
-            );
             bytes32[] memory mergedPeaks = new bytes32[](peaks_len + 1);
             for (uint i = 0; i < peaks_len; i++) {
                 mergedPeaks[i] = peaks[i];
             }
-            mergedPeaks[peaks_len] = parentHash;
+            mergedPeaks[peaks_len] = hash;
             return appendRec(height + 1, mergedPeaks, elementsCount);
         }
         return (peaks, elementsCount);
@@ -312,19 +307,13 @@ library StatelessMmr {
                 bytes32 hashed = keccak256(abi.encode(currentSibling, hash));
                 elementsCount += 1;
 
-                bytes32 parentHash = keccak256(
-                    abi.encode(elementsCount, hashed)
-                );
-                hash = parentHash;
+                hash = hashed;
             } else {
                 // Left child
                 bytes32 hashed = keccak256(abi.encode(hash, currentSibling));
                 elementsCount += 2 << height;
 
-                bytes32 parentHash = keccak256(
-                    abi.encode(elementsCount, hashed)
-                );
-                hash = parentHash;
+                hash = hashed;
             }
             ++height;
         }
