@@ -243,6 +243,14 @@ library StatelessMmr {
             return (elementsCount, firstRoot, newPeaks);
         }
 
+        uint leafCount = StatelessMmrHelpers.mmrSizeToLeafCount(
+            elementsCount - 1
+        );
+        uint numberOfPeaks = StatelessMmrHelpers.countOnes(leafCount);
+        if (peaks.length != numberOfPeaks) {
+            revert InvalidPeaksArrayLength();
+        }
+
         bytes32 computedRoot = computeRoot(peaks, bytes32(lastElementsCount));
         if (computedRoot != lastRoot) {
             revert InvalidRoot();
