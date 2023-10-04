@@ -7,9 +7,9 @@
   "license": "GPL-3.0",
   "private": false,
   "dependencies": {
-    "@herodotus_dev/mmr-core": "^1.1.12",
-    "@herodotus_dev/mmr-hashes": "^1.1.14",
-    "@herodotus_dev/mmr-memory": "^1.1.12",
+    "@accumulators/merkle-mountain-range": "^4.2.1",
+    "@accumulators/hashers": "^4.2.1",
+    "@accumulators/memory": "^4.2.1",
     "ethers": "^5.7.2"
   }
 }

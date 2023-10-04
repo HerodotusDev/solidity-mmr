@@ -37,6 +37,15 @@ library StatelessMmrHelpers {
         return (1 << bitsLength) - 1;
     }
 
+    // Returns a number of ones in bit representation of a number
+    function countOnes(uint256 num) internal pure returns (uint256) {
+        uint256 count = 0;
+        for (; num > 0; count++) {
+            num = num & (num - 1);
+        }
+        return count;
+    }
+
     // Returns the sibling offset from `height`
     function siblingOffset(uint256 height) internal pure returns (uint256) {
         return (2 << height) - 1;
@@ -46,6 +55,22 @@ library StatelessMmrHelpers {
     function parentOffset(uint256 height) internal pure returns (uint256) {
         return 2 << height;
     }
+
+    // Returns number of leaves for a given mmr size
+    function mmrSizeToLeafCount(uint256 mmrSize) internal pure returns (uint256) {
+        uint256 leafCount = 0;
+        uint256 mountainLeafCount = 1 << bitLength(mmrSize);
+        for(; mountainLeafCount > 0; mountainLeafCount /= 2) {
+            uint256 mountainSize = 2 * mountainLeafCount - 1;
+            if (mountainSize <= mmrSize) {
+                leafCount += mountainLeafCount;
+                mmrSize -= mountainSize;
+            }
+        }
+        require(mmrSize == 0, "mmrSize can't be associated with a valid MMR size");
+        return leafCount;
+    }
+
 
     // Creates a new array from source and returns a new one containing all previous elements + `elem`
     function newArrWithElem(

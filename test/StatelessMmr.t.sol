@@ -116,9 +116,7 @@ contract StatelessMmrLib_Test is Test {
 
     function testAppendInitial() public returns (uint, bytes32, bytes32) {
         bytes32[] memory peaks = new bytes32[](0);
-        bytes32 node1 = keccak256(
-            abi.encode(bytes32(uint(1)), bytes32(uint(1)))
-        );
+        bytes32 node1 = bytes32(uint(1));
 
         (uint newPos, bytes32 newRoot) = StatelessMmr.append(
             bytes32(uint(1)),
@@ -155,11 +153,8 @@ contract StatelessMmrLib_Test is Test {
         );
         assertEq(newPos, 3);
 
-        bytes32 node2 = keccak256(
-            abi.encode(bytes32(uint(2)), bytes32(uint(2)))
-        );
-        bytes32 node3_1 = keccak256(abi.encode(node1, node2));
-        bytes32 node3 = keccak256(abi.encode(bytes32(uint(3)), node3_1));
+        bytes32 node2 = bytes32(uint(2));
+        bytes32 node3 = keccak256(abi.encode(node1, node2));
         bytes32 expectedRoot = keccak256(abi.encode(bytes32(uint(3)), node3));
         assertEq(newRoot, expectedRoot);
         return (newPos, newRoot, node3);
@@ -178,9 +173,7 @@ contract StatelessMmrLib_Test is Test {
         );
         assertEq(newPos, 4);
 
-        bytes32 node4 = keccak256(
-            abi.encode(bytes32(uint(4)), bytes32(uint(4)))
-        );
+        bytes32 node4 = bytes32(uint(4));
         peaks = StatelessMmrHelpers.newArrWithElem(peaks, node4);
         bytes32 expectedRoot = StatelessMmr.computeRoot(peaks, bytes32(newPos));
         assertEq(newRoot, expectedRoot);
@@ -205,13 +198,9 @@ contract StatelessMmrLib_Test is Test {
         );
         assertEq(newPos, 7);
 
-        bytes32 node5 = keccak256(
-            abi.encode(bytes32(uint(5)), bytes32(uint(5)))
-        );
-        bytes32 node6_1 = keccak256(abi.encode(lastPeaks[1], node5));
-        bytes32 node6 = keccak256(abi.encode(bytes32(uint(6)), node6_1));
-        bytes32 node7_1 = keccak256(abi.encode(lastPeaks[0], node6));
-        bytes32 node7 = keccak256(abi.encode(bytes32(uint(7)), node7_1));
+        bytes32 node5 = bytes32(uint(5));
+        bytes32 node6 = keccak256(abi.encode(lastPeaks[1], node5));
+        bytes32 node7 = keccak256(abi.encode(lastPeaks[0], node6));
 
         bytes32[] memory peaks = new bytes32[](1);
         peaks[0] = node7;
@@ -235,9 +224,7 @@ contract StatelessMmrLib_Test is Test {
         );
         assertEq(newPos, 8);
 
-        bytes32 node8 = keccak256(
-            abi.encode(bytes32(uint(8)), bytes32(uint(8)))
-        );
+        bytes32 node8 = bytes32(uint(8));
         bytes32[] memory peaks = StatelessMmrHelpers.newArrWithElem(
             lastPeaks,
             node8
@@ -329,9 +316,7 @@ contract StatelessMmrLib_Test is Test {
         );
         assertEq(newPos, 1);
 
-        bytes32 node1 = keccak256(
-            abi.encode(bytes32(uint(1)), bytes32(uint(1)))
-        );
+        bytes32 node1 = bytes32(uint(1));
         peaks = StatelessMmrHelpers.newArrWithElem(peaks, node1);
 
         StatelessMmr.verifyProof(
@@ -356,11 +341,8 @@ contract StatelessMmrLib_Test is Test {
         );
         assertEq(newPos, 3);
 
-        bytes32 node2 = keccak256(
-            abi.encode(bytes32(uint(2)), bytes32(uint(2)))
-        );
-        bytes32 node3_1 = keccak256(abi.encode(node1, node2));
-        bytes32 node3 = keccak256(abi.encode(bytes32(uint(3)), node3_1));
+        bytes32 node2 = bytes32(uint(2));
+        bytes32 node3 = keccak256(abi.encode(node1, node2));
         peaks = new bytes32[](1);
         peaks[0] = node3;
 
@@ -390,9 +372,7 @@ contract StatelessMmrLib_Test is Test {
         );
         assertEq(newPos, 4);
 
-        bytes32 node4 = keccak256(
-            abi.encode(bytes32(uint(4)), bytes32(uint(4)))
-        );
+        bytes32 node4 = bytes32(uint(4));
         peaks = StatelessMmrHelpers.newArrWithElem(peaks, node4);
 
         StatelessMmr.verifyProof(
@@ -423,13 +403,9 @@ contract StatelessMmrLib_Test is Test {
         proof[0] = lastPeaks[1];
         proof[1] = lastPeaks[0];
 
-        bytes32 node5 = keccak256(
-            abi.encode(bytes32(uint(5)), bytes32(uint(5)))
-        );
-        bytes32 node6_1 = keccak256(abi.encode(lastPeaks[1], node5));
-        bytes32 node6 = keccak256(abi.encode(bytes32(uint(6)), node6_1));
-        bytes32 node7_1 = keccak256(abi.encode(lastPeaks[0], node6));
-        bytes32 node7 = keccak256(abi.encode(bytes32(uint(7)), node7_1));
+        bytes32 node5 = bytes32(uint(5));
+        bytes32 node6= keccak256(abi.encode(lastPeaks[1], node5));
+        bytes32 node7= keccak256(abi.encode(lastPeaks[0], node6));
         bytes32[] memory peaks = new bytes32[](1);
         peaks[0] = node7;
 
@@ -457,9 +433,7 @@ contract StatelessMmrLib_Test is Test {
         );
         assertEq(newPos, 8);
 
-        bytes32 node8 = keccak256(
-            abi.encode(bytes32(uint(8)), bytes32(uint(8)))
-        );
+        bytes32 node8 = bytes32(uint(8));
         bytes32[] memory peaks = StatelessMmrHelpers.newArrWithElem(
             lastPeaks,
             node8
@@ -485,9 +459,7 @@ contract StatelessMmrLib_Test is Test {
         );
         assertEq(newPos, 1);
 
-        bytes32 node1 = keccak256(
-            abi.encode(bytes32(uint(1)), bytes32(uint(1)))
-        );
+        bytes32 node1 = bytes32(uint(1));
         peaks = StatelessMmrHelpers.newArrWithElem(peaks, node1);
 
         vm.expectRevert(IndexOutOfBounds.selector);
@@ -511,9 +483,7 @@ contract StatelessMmrLib_Test is Test {
         );
         assertEq(newPos, 1);
 
-        bytes32 invalidNode1 = keccak256(
-            abi.encode(bytes32(uint(1)), bytes32(uint(42)))
-        );
+        bytes32 invalidNode1 = bytes32(uint(42));
         peaks = StatelessMmrHelpers.newArrWithElem(peaks, invalidNode1);
 
         vm.expectRevert();
@@ -539,11 +509,8 @@ contract StatelessMmrLib_Test is Test {
         );
         assertEq(newPos, 3);
 
-        bytes32 node2 = keccak256(
-            abi.encode(bytes32(uint(2)), bytes32(uint(2)))
-        );
-        bytes32 node3_1 = keccak256(abi.encode(node1, node2));
-        bytes32 node3 = keccak256(abi.encode(bytes32(uint(3)), node3_1));
+        bytes32 node2 = bytes32(uint(2));
+        bytes32 node3= keccak256(abi.encode(node1, node2));
         peaks = new bytes32[](1);
         peaks[0] = node3;
 
