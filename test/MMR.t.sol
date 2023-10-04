@@ -19,7 +19,7 @@ contract MMR_Test is Test {
         vm.expectEmit(true, true, true, true);
         emit Appended(
             bytes32(uint(1)),
-            0xedb38a93e6e2e82dbb40826a878df1d817a37ef13fcaa25248649a90fa47497b,
+            0xcc69885fda6bcc1a4ace058b4a62bf5e179ea78fd58a1ccd71c22cc9b688792f,
             1
         );
         mmr.append(bytes32(uint(1)));
@@ -31,21 +31,21 @@ contract MMR_Test is Test {
 
         // Multi-append
         vm.expectEmit(true, true, true, true);
-        vm.expectEmit(true, true, true, true);
-        vm.expectEmit(true, true, true, true);
         emit Appended(
             bytes32(uint(2)),
-            0x112e2be63bd7e73b3af704af8f4c8f6086fe3773003738f4ee9ada285d308d53,
+            0x9b0225f2c6f59eeaf8302811ea290e95258763189b82dc033158e99a6ef45a87,
             3
         );
+        vm.expectEmit(true, true, true, true);
         emit Appended(
             bytes32(uint(3)),
-            0x9cf52726b5c1f29825fa3757402809afeb76f510e83e95559d9a5504a243b373,
+            0xda17729a0f5f73c4df98b68ff4594cc40ebe750cac8ff62cf71bacd99451602e,
             4
         );
+        vm.expectEmit(true, true, true, true);
         emit Appended(
             bytes32(uint(4)),
-            0xcbd55f3f5a7a54dbc0189df36d0db9abdd5ecfa0bf59d4a9094169563b0e5c53,
+            0x4cab9bd4f2a70f5a6988e8741e74f8a7504bf1ebe8c57e765ee7875731360cd0,
             7
         );
         mmr.multiAppend(elementsToAppend);
