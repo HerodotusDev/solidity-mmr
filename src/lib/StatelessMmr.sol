@@ -260,11 +260,15 @@ library StatelessMmr {
             peaks,
             elem
         );
-        (bytes32[] memory updatedPeaks, uint updatedElementsCount) = appendRec(
-            0,
+
+        uint appendNoMerges = StatelessMmrHelpers.leafCountToAppendNoMerges(leafCount);
+        bytes32[] memory updatedPeaks = appendPerformMerging(
             appendPeaks,
-            elementsCount
+            appendNoMerges
         );
+
+        uint updatedElementsCount = elementsCount + appendNoMerges;
+
         bytes32 newRoot = computeRoot(
             updatedPeaks,
             bytes32(updatedElementsCount)
@@ -272,31 +276,23 @@ library StatelessMmr {
         return (updatedElementsCount, newRoot, updatedPeaks);
     }
 
-    function appendRec(
-        uint height,
+    function appendPerformMerging(
         bytes32[] memory peaks,
-        uint lastElementsCount
-    ) internal pure returns (bytes32[] memory, uint) {
-        uint elementsCount = lastElementsCount;
-        uint nextHeight = StatelessMmrHelpers.getHeight(elementsCount + 1);
-
-        bool isHigher = height + 1 <= nextHeight;
-        if (isHigher) {
-            elementsCount += 1;
-
-            bytes32 rightHash = peaks[peaks.length - 1];
-            bytes32 leftHash = peaks[peaks.length - 2];
-            uint peaks_len = peaks.length - 2;
-
-            bytes32 hash = keccak256(abi.encode(leftHash, rightHash));
-            bytes32[] memory mergedPeaks = new bytes32[](peaks_len + 1);
-            for (uint i = 0; i < peaks_len; i++) {
-                mergedPeaks[i] = peaks[i];
-            }
-            mergedPeaks[peaks_len] = hash;
-            return appendRec(height + 1, mergedPeaks, elementsCount);
+        uint noMerges
+    ) internal pure returns (bytes32[] memory) {
+        uint peaksLen = peaks.length;
+        bytes32 accHash = peaks[peaksLen - 1];
+        for (uint i = 0; i < noMerges; i++) {
+            bytes32 hash = peaks[peaksLen - i - 2];
+            accHash = keccak256(abi.encode(hash, accHash));
         }
-        return (peaks, elementsCount);
+        bytes32[] memory newPeaks = new bytes32[](peaksLen - noMerges);
+        for (uint i = 0; i < peaksLen - noMerges - 1; i++) {
+            newPeaks[i] = peaks[i];
+        }
+        newPeaks[peaksLen - noMerges - 1] = accHash;
+
+        return newPeaks;
     }
 
     function getProofTopPeak(
