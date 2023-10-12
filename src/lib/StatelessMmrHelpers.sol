@@ -71,6 +71,14 @@ library StatelessMmrHelpers {
         return leafCount;
     }
 
+    function leafCountToAppendNoMerges(uint256 leafCount) internal pure returns (uint256) {
+        uint256 count = 0;
+        while(leafCount > 0 && (leafCount & 1) == 1) {
+            count += 1;
+            leafCount /= 2;
+        }
+        return count;
+    }
 
     // Creates a new array from source and returns a new one containing all previous elements + `elem`
     function newArrWithElem(
