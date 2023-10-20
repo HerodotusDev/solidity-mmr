@@ -71,6 +71,11 @@ library StatelessMmrHelpers {
         return leafCount;
     }
 
+    // Returns leaf index (0-based) for a given mmr (element) index
+    function mmrIndexToLeafIndex(uint256 mmrIndex) internal pure returns (uint256) {
+        return mmrSizeToLeafCount(mmrIndex - 1);
+    }
+
     function leafCountToAppendNoMerges(uint256 leafCount) internal pure returns (uint256) {
         uint256 count = 0;
         while(leafCount > 0 && (leafCount & 1) == 1) {
