@@ -301,25 +301,24 @@ library StatelessMmr {
         uint elementsCount,
         bytes32[] memory proof
     ) internal pure returns (bytes32) {
+        uint leafIndex = StatelessMmrHelpers.mmrIndexToLeafIndex(elementsCount);
         for (uint i = 0; i < proof.length; ++i) {
             bytes32 currentSibling = proof[i];
-            uint nextHeight = StatelessMmrHelpers.getHeight(elementsCount + 1);
 
-            bool isHigher = height + 1 <= nextHeight;
-            if (isHigher) {
-                // Right child
+            bool isRightChild = leafIndex % 2 == 1;
+            if (isRightChild) {
                 bytes32 hashed = keccak256(abi.encode(currentSibling, hash));
                 elementsCount += 1;
 
                 hash = hashed;
             } else {
-                // Left child
                 bytes32 hashed = keccak256(abi.encode(hash, currentSibling));
                 elementsCount += 2 << height;
 
                 hash = hashed;
             }
             ++height;
+            leafIndex /= 2;
         }
         return hash;
     }
