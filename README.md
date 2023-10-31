@@ -157,4 +157,4 @@ const numberStringToBytes32 = (numberAsString) =>
 
 ---
 
-Herodotus Ltd - 2023
+Herodotus Dev Ltd - 2023
