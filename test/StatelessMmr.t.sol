@@ -449,6 +449,60 @@ contract StatelessMmrLib_Test is Test {
         );
     }
 
+    function testVerifyProofElevenLeaves() public {
+        bytes32[] memory elem = new bytes32[](20);
+        elem[1] = bytes32(uint(0));
+        elem[2] = bytes32(uint(1));
+        elem[3] = keccak256(abi.encode(elem[1], elem[2]));
+        elem[4] = bytes32(uint(2));
+        elem[5] = bytes32(uint(3));
+        elem[6] = keccak256(abi.encode(elem[4], elem[5]));
+        elem[7] = keccak256(abi.encode(elem[3], elem[6]));
+        elem[8] = bytes32(uint(4));
+        elem[9] = bytes32(uint(5));
+        elem[10] = keccak256(abi.encode(elem[8], elem[9]));
+        elem[11] = bytes32(uint(6));
+        elem[12] = bytes32(uint(7));
+        elem[13] = keccak256(abi.encode(elem[11], elem[12]));
+        elem[14] = keccak256(abi.encode(elem[10], elem[13]));
+        elem[15] = keccak256(abi.encode(elem[7], elem[14]));
+        elem[16] = bytes32(uint(8));
+        elem[17] = bytes32(uint(9));
+        elem[18] = keccak256(abi.encode(elem[16], elem[17]));
+        elem[19] = bytes32(uint(10));
+
+        bytes32[] memory toAppend = new bytes32[](11);
+        toAppend[0] = elem[1];
+        toAppend[1] = elem[2];
+        toAppend[2] = elem[4];
+        toAppend[3] = elem[5];
+        toAppend[4] = elem[8];
+        toAppend[5] = elem[9];
+        toAppend[6] = elem[11];
+        toAppend[7] = elem[12];
+        toAppend[8] = elem[16];
+        toAppend[9] = elem[17];
+        toAppend[10] = elem[19];
+
+        (, bytes32 root) = StatelessMmr.multiAppend(
+            toAppend,
+            new bytes32[](0),
+            0,
+            bytes32(0)
+        );
+
+        bytes32[] memory proof = new bytes32[](3);
+        proof[0] = elem[9];
+        proof[1] = elem[13];
+        proof[2] = elem[7];
+        bytes32[] memory peaks = new bytes32[](3);
+        peaks[0] = elem[15];
+        peaks[1] = elem[18];
+        peaks[2] = elem[19];
+
+        StatelessMmr.verifyProof(8, elem[8], proof, peaks, 19, root);
+    }
+    
     function testVerifyProofInvalidIndex() public {
         bytes32[] memory peaks = new bytes32[](0);
         (uint newPos, bytes32 newRoot) = StatelessMmr.append(
