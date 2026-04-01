@@ -16,7 +16,12 @@ import "./StatelessMmrHelpers.sol";
 /// @title StatelessMmr -- A Solidity implementation of Merkle Mountain Range
 /// @author Herodotus Ltd
 /// @notice Library for appending bytes32 values (i.e., acting as an accumulator)
-///         and verifying Merkle inclusion proofs
+///         and verifying Merkle inclusion proofs.
+///
+/// @dev All functions accept a `hasher` parameter of type
+///      `function(bytes32, bytes32) internal pure returns (bytes32)`.
+///      This makes the hashing algorithm pluggable: pass `KeccakHasher.hash`
+///      for keccak256-based MMRs or `Poseidon2Hasher.hash` for Poseidon2-based MMRs.
 ///
 library StatelessMmr {
     error InvalidProof();
@@ -29,20 +34,23 @@ library StatelessMmr {
     /// @param elem Element to append
     /// @param peaks The latest peaks
     /// @param lastElementsCount The latest elements count
-    /// @param lastRoot  The latest root
+    /// @param lastRoot The latest root
+    /// @param hasher Two-argument hash function used for all node hashing
     /// @return The updated elements count and the new root hash of the tree
     ///
     function append(
         bytes32 elem,
         bytes32[] memory peaks,
         uint lastElementsCount,
-        bytes32 lastRoot
+        bytes32 lastRoot,
+        function(bytes32, bytes32) internal pure returns (bytes32) hasher
     ) internal pure returns (uint, bytes32) {
         (uint updatedElementsCount, bytes32 newRoot, ) = doAppend(
             elem,
             peaks,
             lastElementsCount,
-            lastRoot
+            lastRoot,
+            hasher
         );
 
         return (updatedElementsCount, newRoot);
@@ -55,13 +63,14 @@ library StatelessMmr {
         bytes32 elem,
         bytes32[] memory peaks,
         uint lastElementsCount,
-        bytes32 lastRoot
+        bytes32 lastRoot,
+        function(bytes32, bytes32) internal pure returns (bytes32) hasher
     ) internal pure returns (uint, bytes32, bytes32[] memory) {
         (
             uint updatedElementsCount,
             bytes32 newRoot,
             bytes32[] memory updatedPeaks
-        ) = doAppend(elem, peaks, lastElementsCount, lastRoot);
+        ) = doAppend(elem, peaks, lastElementsCount, lastRoot, hasher);
 
         return (updatedElementsCount, newRoot, updatedPeaks);
     }
@@ -71,13 +80,15 @@ library StatelessMmr {
     /// @param peaks The latest peaks
     /// @param lastElementsCount The latest elements count
     /// @param lastRoot The latest tree root hash
+    /// @param hasher Two-argument hash function used for all node hashing
     /// @return The newest elements count and the newest tree root hash
     ///
     function multiAppend(
         bytes32[] memory elems,
         bytes32[] memory peaks,
         uint lastElementsCount,
-        bytes32 lastRoot
+        bytes32 lastRoot,
+        function(bytes32, bytes32) internal pure returns (bytes32) hasher
     ) internal pure returns (uint, bytes32) {
         uint elementsCount = lastElementsCount;
         bytes32 root = lastRoot;
@@ -88,7 +99,8 @@ library StatelessMmr {
                 elems[i],
                 updatedPeaks,
                 elementsCount,
-                root
+                root,
+                hasher
             );
         }
         return (elementsCount, root);
@@ -101,7 +113,8 @@ library StatelessMmr {
         bytes32[] memory elems,
         bytes32[] memory peaks,
         uint lastElementsCount,
-        bytes32 lastRoot
+        bytes32 lastRoot,
+        function(bytes32, bytes32) internal pure returns (bytes32) hasher
     ) internal pure returns (uint, bytes32, bytes32[] memory) {
         uint elementsCount = lastElementsCount;
         bytes32 root = lastRoot;
@@ -112,7 +125,8 @@ library StatelessMmr {
                 elems[i],
                 updatedPeaks,
                 elementsCount,
-                root
+                root,
+                hasher
             );
         }
         return (elementsCount, root, updatedPeaks);
@@ -124,13 +138,15 @@ library StatelessMmr {
     /// @param allPeaks All the precomputed peaks computed off-chain (more gas efficient)
     /// @param lastElementsCount The latest elements count
     /// @param lastRoot The latest tree root hash
+    /// @param hasher Two-argument hash function used for all node hashing
     /// @return The newest elements count and the newest tree root hash
     ///
     function multiAppendWithPrecomputedPeaks(
         bytes32[] memory elems,
         bytes32[][] memory allPeaks,
         uint lastElementsCount,
-        bytes32 lastRoot
+        bytes32 lastRoot,
+        function(bytes32, bytes32) internal pure returns (bytes32) hasher
     ) internal pure returns (uint, bytes32) {
         uint elementsCount = lastElementsCount;
         bytes32 root = lastRoot;
@@ -140,7 +156,8 @@ library StatelessMmr {
                 elems[i],
                 allPeaks[i],
                 elementsCount,
-                root
+                root,
+                hasher
             );
         }
         return (elementsCount, root);
@@ -153,6 +170,7 @@ library StatelessMmr {
     /// @param peaks The peaks at the time of inclusion
     /// @param elementsCount The element count at the time of inclusion
     /// @param root The tree root hash at the time of inclusion
+    /// @param hasher Two-argument hash function used for all node hashing (must match the one used during appends)
     ///
     function verifyProof(
         uint index,
@@ -160,17 +178,18 @@ library StatelessMmr {
         bytes32[] memory proof,
         bytes32[] memory peaks,
         uint elementsCount,
-        bytes32 root
+        bytes32 root,
+        function(bytes32, bytes32) internal pure returns (bytes32) hasher
     ) internal pure {
         if (index > elementsCount) {
             revert IndexOutOfBounds();
         }
-        bytes32 computedRoot = computeRoot(peaks, bytes32(elementsCount));
+        bytes32 computedRoot = computeRoot(peaks, bytes32(elementsCount), hasher);
         if (computedRoot != root) {
             revert InvalidRoot();
         }
 
-        bytes32 topPeak = getProofTopPeak(0, value, index, proof);
+        bytes32 topPeak = getProofTopPeak(0, value, index, proof, hasher);
 
         bool isValid = StatelessMmrHelpers.arrayContains(topPeak, peaks);
         if (!isValid) {
@@ -190,23 +209,29 @@ library StatelessMmr {
     ///
     /// @notice Computes the root hash of the given peaks and tree size
     /// @param peaks Peaks to compute the root from
-    /// @param size Tree size to to compute the root from
+    /// @param size Tree size to compute the root from
+    /// @param hasher Two-argument hash function used for all node hashing
     /// @return The root hash of the following peaks and tree size
     ///
     function computeRoot(
         bytes32[] memory peaks,
-        bytes32 size
+        bytes32 size,
+        function(bytes32, bytes32) internal pure returns (bytes32) hasher
     ) internal pure returns (bytes32) {
-        bytes32 baggedPeaks = bagPeaks(peaks);
-        return keccak256(abi.encode(size, baggedPeaks));
+        bytes32 baggedPeaks = bagPeaks(peaks, hasher);
+        return hasher(size, baggedPeaks);
     }
 
     ///
     /// @notice Bag the peaks: recursively hashing peaks together to form a single hash
     /// @param peaks The peaks to bag
+    /// @param hasher Two-argument hash function used for all node hashing
     /// @return The bagged peaks
     ///
-    function bagPeaks(bytes32[] memory peaks) internal pure returns (bytes32) {
+    function bagPeaks(
+        bytes32[] memory peaks,
+        function(bytes32, bytes32) internal pure returns (bytes32) hasher
+    ) internal pure returns (bytes32) {
         if (peaks.length < 1) {
             revert InvalidPeaksArrayLength();
         }
@@ -215,7 +240,7 @@ library StatelessMmr {
         }
 
         uint len = peaks.length;
-        bytes32 root0 = keccak256(abi.encode(peaks[len - 2], peaks[len - 1]));
+        bytes32 root0 = hasher(peaks[len - 2], peaks[len - 1]);
         bytes32[] memory reversedPeaks = new bytes32[](len - 2);
         for (uint i = 0; i < len - 2; i++) {
             reversedPeaks[i] = peaks[len - 3 - i];
@@ -223,7 +248,7 @@ library StatelessMmr {
 
         bytes32 bags = root0;
         for (uint i = 0; i < reversedPeaks.length; i++) {
-            bags = keccak256(abi.encode(reversedPeaks[i], bags));
+            bags = hasher(reversedPeaks[i], bags);
         }
         return bags;
     }
@@ -232,12 +257,13 @@ library StatelessMmr {
         bytes32 elem,
         bytes32[] memory peaks,
         uint lastElementsCount,
-        bytes32 lastRoot
+        bytes32 lastRoot,
+        function(bytes32, bytes32) internal pure returns (bytes32) hasher
     ) internal pure returns (uint, bytes32, bytes32[] memory) {
         uint elementsCount = lastElementsCount + 1;
         if (lastElementsCount == 0) {
             bytes32 root0 = elem;
-            bytes32 firstRoot = keccak256(abi.encode(uint(1), root0));
+            bytes32 firstRoot = hasher(bytes32(uint(1)), root0);
             bytes32[] memory newPeaks = new bytes32[](1);
             newPeaks[0] = root0;
             return (elementsCount, firstRoot, newPeaks);
@@ -251,7 +277,7 @@ library StatelessMmr {
             revert InvalidPeaksArrayLength();
         }
 
-        bytes32 computedRoot = computeRoot(peaks, bytes32(lastElementsCount));
+        bytes32 computedRoot = computeRoot(peaks, bytes32(lastElementsCount), hasher);
         if (computedRoot != lastRoot) {
             revert InvalidRoot();
         }
@@ -264,27 +290,30 @@ library StatelessMmr {
         uint appendNoMerges = StatelessMmrHelpers.leafCountToAppendNoMerges(leafCount);
         bytes32[] memory updatedPeaks = appendPerformMerging(
             appendPeaks,
-            appendNoMerges
+            appendNoMerges,
+            hasher
         );
 
         uint updatedElementsCount = elementsCount + appendNoMerges;
 
         bytes32 newRoot = computeRoot(
             updatedPeaks,
-            bytes32(updatedElementsCount)
+            bytes32(updatedElementsCount),
+            hasher
         );
         return (updatedElementsCount, newRoot, updatedPeaks);
     }
 
     function appendPerformMerging(
         bytes32[] memory peaks,
-        uint noMerges
+        uint noMerges,
+        function(bytes32, bytes32) internal pure returns (bytes32) hasher
     ) internal pure returns (bytes32[] memory) {
         uint peaksLen = peaks.length;
         bytes32 accHash = peaks[peaksLen - 1];
         for (uint i = 0; i < noMerges; i++) {
             bytes32 hash = peaks[peaksLen - i - 2];
-            accHash = keccak256(abi.encode(hash, accHash));
+            accHash = hasher(hash, accHash);
         }
         bytes32[] memory newPeaks = new bytes32[](peaksLen - noMerges);
         for (uint i = 0; i < peaksLen - noMerges - 1; i++) {
@@ -299,7 +328,8 @@ library StatelessMmr {
         uint height,
         bytes32 hash,
         uint elementsCount,
-        bytes32[] memory proof
+        bytes32[] memory proof,
+        function(bytes32, bytes32) internal pure returns (bytes32) hasher
     ) internal pure returns (bytes32) {
         uint leafIndex = StatelessMmrHelpers.mmrIndexToLeafIndex(elementsCount);
         for (uint i = 0; i < proof.length; ++i) {
@@ -307,12 +337,12 @@ library StatelessMmr {
 
             bool isRightChild = leafIndex % 2 == 1;
             if (isRightChild) {
-                bytes32 hashed = keccak256(abi.encode(currentSibling, hash));
+                bytes32 hashed = hasher(currentSibling, hash);
                 elementsCount += 1;
 
                 hash = hashed;
             } else {
-                bytes32 hashed = keccak256(abi.encode(hash, currentSibling));
+                bytes32 hashed = hasher(hash, currentSibling);
                 elementsCount += 2 << height;
 
                 hash = hashed;

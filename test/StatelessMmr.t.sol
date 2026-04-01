@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 
 import {StatelessMmr} from "../src/lib/StatelessMmr.sol";
 import {StatelessMmrHelpers} from "../src/lib/StatelessMmrHelpers.sol";
+import {KeccakHasher} from "../src/lib/hashers/KeccakHasher.sol";
 
 contract StatelessMmrLib_Test is Test {
     error InvalidProof();
@@ -12,10 +13,35 @@ contract StatelessMmrLib_Test is Test {
     error InvalidRoot();
     error InvalidPeaksArrayLength();
 
+    // ── External wrappers ────────────────────────────────────────────────────
+    // vm.expectRevert requires the next call to be an external call.
+    // These thin wrappers expose the internal library calls externally via `this.`.
+
+    function _callBagPeaks(bytes32[] calldata peaks) external pure {
+        StatelessMmr.bagPeaks(peaks, KeccakHasher.hash);
+    }
+
+    function _callComputeRoot(bytes32[] calldata peaks, bytes32 size) external pure {
+        StatelessMmr.computeRoot(peaks, size, KeccakHasher.hash);
+    }
+
+    function _callVerifyProof(
+        uint index,
+        bytes32 value,
+        bytes32[] calldata proof,
+        bytes32[] calldata peaks,
+        uint elementsCount,
+        bytes32 root
+    ) external pure {
+        StatelessMmr.verifyProof(index, value, proof, peaks, elementsCount, root, KeccakHasher.hash);
+    }
+
+    // ── Tests ────────────────────────────────────────────────────────────────
+
     function testInvalidBagPeaks() public {
         // Test bagging with an invalid size (empty peaks array)
         vm.expectRevert(InvalidPeaksArrayLength.selector);
-        StatelessMmr.bagPeaks(new bytes32[](0));
+        this._callBagPeaks(new bytes32[](0));
     }
 
     function testBagPeaks() public {
@@ -23,12 +49,12 @@ contract StatelessMmrLib_Test is Test {
 
         // Test bagging with one element
         peaks = StatelessMmrHelpers.newArrWithElem(peaks, bytes32(uint(1)));
-        bytes32 baggedPeaks = StatelessMmr.bagPeaks(peaks);
+        bytes32 baggedPeaks = StatelessMmr.bagPeaks(peaks, KeccakHasher.hash);
         assertEq(baggedPeaks, peaks[0]);
 
         // Test bagging with two elements
         peaks = StatelessMmrHelpers.newArrWithElem(peaks, bytes32(uint(2)));
-        baggedPeaks = StatelessMmr.bagPeaks(peaks);
+        baggedPeaks = StatelessMmr.bagPeaks(peaks, KeccakHasher.hash);
         bytes32 expectedBags = keccak256(abi.encode(peaks[0], peaks[1]));
         assertEq(baggedPeaks, expectedBags);
 
@@ -36,22 +62,21 @@ contract StatelessMmrLib_Test is Test {
         peaks = StatelessMmrHelpers.newArrWithElem(peaks, bytes32(uint(3)));
         bytes32 root0 = keccak256(abi.encode(peaks[1], peaks[2]));
         bytes32 root = keccak256(abi.encode(peaks[0], root0));
-        baggedPeaks = StatelessMmr.bagPeaks(peaks);
+        baggedPeaks = StatelessMmr.bagPeaks(peaks, KeccakHasher.hash);
         assertEq(baggedPeaks, root);
     }
 
     function testComputeRootEmpty() public {
         bytes32[] memory peaks = new bytes32[](0);
         vm.expectRevert(InvalidPeaksArrayLength.selector);
-        bytes32 root = StatelessMmr.computeRoot(peaks, 0);
-        assertEq(root, bytes32(0));
+        this._callComputeRoot(peaks, 0);
     }
 
     function testComputeRoot1() public {
         bytes32[] memory peaks = new bytes32[](1);
         peaks[0] = keccak256(abi.encode(bytes32(uint(1)), bytes32(uint(1))));
 
-        bytes32 root = StatelessMmr.computeRoot(peaks, bytes32(uint(1)));
+        bytes32 root = StatelessMmr.computeRoot(peaks, bytes32(uint(1)), KeccakHasher.hash);
         assertEq(root, keccak256(abi.encode(bytes32(uint(1)), peaks[0])));
     }
 
@@ -64,7 +89,7 @@ contract StatelessMmrLib_Test is Test {
             abi.encode(bytes32(uint(7)), bytes32(uint(38474983)))
         );
 
-        bytes32 root = StatelessMmr.computeRoot(peaks, bytes32(uint(7)));
+        bytes32 root = StatelessMmr.computeRoot(peaks, bytes32(uint(7)), KeccakHasher.hash);
         bytes32 expectedRoot = keccak256(
             abi.encode(
                 bytes32(uint(7)),
@@ -86,7 +111,7 @@ contract StatelessMmrLib_Test is Test {
             abi.encode(bytes32(uint(923048)), bytes32(uint(283409)))
         );
 
-        bytes32 root = StatelessMmr.computeRoot(peaks, bytes32(uint(923048)));
+        bytes32 root = StatelessMmr.computeRoot(peaks, bytes32(uint(923048)), KeccakHasher.hash);
         bytes32 expectedRoot = keccak256(
             abi.encode(
                 bytes32(uint(923048)),
@@ -107,10 +132,10 @@ contract StatelessMmrLib_Test is Test {
             peaks[i] = bytes32(uint(i));
         }
         assertEq(peaks.length, 3);
-        bytes32 baggedPeaks = StatelessMmr.bagPeaks(peaks);
+        bytes32 baggedPeaks = StatelessMmr.bagPeaks(peaks, KeccakHasher.hash);
         uint pos = 7; // Expected pos after 3 appended elements
         bytes32 expectedRoot = keccak256(abi.encode(pos, baggedPeaks));
-        bytes32 root = StatelessMmr.computeRoot(peaks, bytes32(pos));
+        bytes32 root = StatelessMmr.computeRoot(peaks, bytes32(pos), KeccakHasher.hash);
         assertEq(root, expectedRoot);
     }
 
@@ -122,7 +147,8 @@ contract StatelessMmrLib_Test is Test {
             bytes32(uint(1)),
             peaks,
             0,
-            bytes32(0)
+            bytes32(0),
+            KeccakHasher.hash
         );
         assertEq(newPos, 1);
 
@@ -133,7 +159,8 @@ contract StatelessMmrLib_Test is Test {
         peaks[0] = node1;
         bytes32 expectedRootMethod2 = StatelessMmr.computeRoot(
             peaks,
-            bytes32(newPos)
+            bytes32(newPos),
+            KeccakHasher.hash
         );
         assertEq(newRoot, expectedRootMethod2);
 
@@ -149,7 +176,8 @@ contract StatelessMmrLib_Test is Test {
             bytes32(uint(2)),
             peaks,
             lastPos,
-            lastRoot
+            lastRoot,
+            KeccakHasher.hash
         );
         assertEq(newPos, 3);
 
@@ -169,13 +197,14 @@ contract StatelessMmrLib_Test is Test {
             bytes32(uint(4)),
             peaks,
             lastPos,
-            lastRoot
+            lastRoot,
+            KeccakHasher.hash
         );
         assertEq(newPos, 4);
 
         bytes32 node4 = bytes32(uint(4));
         peaks = StatelessMmrHelpers.newArrWithElem(peaks, node4);
-        bytes32 expectedRoot = StatelessMmr.computeRoot(peaks, bytes32(newPos));
+        bytes32 expectedRoot = StatelessMmr.computeRoot(peaks, bytes32(newPos), KeccakHasher.hash);
         assertEq(newRoot, expectedRoot);
 
         return (newPos, newRoot, peaks);
@@ -194,7 +223,8 @@ contract StatelessMmrLib_Test is Test {
             bytes32(uint(5)),
             lastPeaks,
             lastPos,
-            lastRoot
+            lastRoot,
+            KeccakHasher.hash
         );
         assertEq(newPos, 7);
 
@@ -204,7 +234,7 @@ contract StatelessMmrLib_Test is Test {
 
         bytes32[] memory peaks = new bytes32[](1);
         peaks[0] = node7;
-        bytes32 expectedRoot = StatelessMmr.computeRoot(peaks, bytes32(newPos));
+        bytes32 expectedRoot = StatelessMmr.computeRoot(peaks, bytes32(newPos), KeccakHasher.hash);
         assertEq(newRoot, expectedRoot);
 
         return (newPos, newRoot, peaks);
@@ -220,7 +250,8 @@ contract StatelessMmrLib_Test is Test {
             bytes32(uint(8)),
             lastPeaks,
             lastPos,
-            lastRoot
+            lastRoot,
+            KeccakHasher.hash
         );
         assertEq(newPos, 8);
 
@@ -229,7 +260,7 @@ contract StatelessMmrLib_Test is Test {
             lastPeaks,
             node8
         );
-        bytes32 expectedRoot = StatelessMmr.computeRoot(peaks, bytes32(newPos));
+        bytes32 expectedRoot = StatelessMmr.computeRoot(peaks, bytes32(newPos), KeccakHasher.hash);
         assertEq(newRoot, expectedRoot);
 
         return (newPos, newRoot, peaks);
@@ -240,7 +271,7 @@ contract StatelessMmrLib_Test is Test {
         elems[0] = bytes32(uint(1));
         bytes32[] memory peaks = new bytes32[](0);
 
-        (uint newPos, ) = StatelessMmr.multiAppend(elems, peaks, 0, bytes32(0));
+        (uint newPos, ) = StatelessMmr.multiAppend(elems, peaks, 0, bytes32(0), KeccakHasher.hash);
         assertEq(newPos, 1);
     }
 
@@ -253,7 +284,8 @@ contract StatelessMmrLib_Test is Test {
             elems,
             new bytes32[](0),
             0,
-            bytes32(0)
+            bytes32(0),
+            KeccakHasher.hash
         );
         assertEq(newPos, 3);
     }
@@ -268,7 +300,8 @@ contract StatelessMmrLib_Test is Test {
             elems,
             new bytes32[](0),
             0,
-            bytes32(0)
+            bytes32(0),
+            KeccakHasher.hash
         );
         assertEq(newPos, 4);
     }
@@ -284,7 +317,8 @@ contract StatelessMmrLib_Test is Test {
             elems,
             new bytes32[](0),
             0,
-            bytes32(0)
+            bytes32(0),
+            KeccakHasher.hash
         );
         assertEq(newPos, 7);
     }
@@ -301,7 +335,8 @@ contract StatelessMmrLib_Test is Test {
             elems,
             new bytes32[](0),
             0,
-            bytes32(0)
+            bytes32(0),
+            KeccakHasher.hash
         );
         assertEq(newPos, 8);
     }
@@ -312,7 +347,8 @@ contract StatelessMmrLib_Test is Test {
             bytes32(uint(1)),
             peaks,
             0,
-            bytes32(0)
+            bytes32(0),
+            KeccakHasher.hash
         );
         assertEq(newPos, 1);
 
@@ -325,7 +361,8 @@ contract StatelessMmrLib_Test is Test {
             new bytes32[](0),
             peaks,
             newPos,
-            newRoot
+            newRoot,
+            KeccakHasher.hash
         );
     }
 
@@ -337,7 +374,8 @@ contract StatelessMmrLib_Test is Test {
             bytes32(uint(2)),
             peaks,
             lastPos,
-            lastRoot
+            lastRoot,
+            KeccakHasher.hash
         );
         assertEq(newPos, 3);
 
@@ -355,7 +393,8 @@ contract StatelessMmrLib_Test is Test {
             proof,
             peaks,
             newPos,
-            newRoot
+            newRoot,
+            KeccakHasher.hash
         );
     }
 
@@ -368,7 +407,8 @@ contract StatelessMmrLib_Test is Test {
             bytes32(uint(4)),
             peaks,
             lastPos,
-            lastRoot
+            lastRoot,
+            KeccakHasher.hash
         );
         assertEq(newPos, 4);
 
@@ -381,7 +421,8 @@ contract StatelessMmrLib_Test is Test {
             new bytes32[](0),
             peaks,
             newPos,
-            newRoot
+            newRoot,
+            KeccakHasher.hash
         );
     }
 
@@ -395,7 +436,8 @@ contract StatelessMmrLib_Test is Test {
             bytes32(uint(5)),
             lastPeaks,
             lastPos,
-            lastRoot
+            lastRoot,
+            KeccakHasher.hash
         );
         assertEq(newPos, 7);
 
@@ -404,8 +446,8 @@ contract StatelessMmrLib_Test is Test {
         proof[1] = lastPeaks[0];
 
         bytes32 node5 = bytes32(uint(5));
-        bytes32 node6= keccak256(abi.encode(lastPeaks[1], node5));
-        bytes32 node7= keccak256(abi.encode(lastPeaks[0], node6));
+        bytes32 node6 = keccak256(abi.encode(lastPeaks[1], node5));
+        bytes32 node7 = keccak256(abi.encode(lastPeaks[0], node6));
         bytes32[] memory peaks = new bytes32[](1);
         peaks[0] = node7;
 
@@ -415,7 +457,8 @@ contract StatelessMmrLib_Test is Test {
             proof,
             peaks,
             newPos,
-            newRoot
+            newRoot,
+            KeccakHasher.hash
         );
     }
 
@@ -429,7 +472,8 @@ contract StatelessMmrLib_Test is Test {
             bytes32(uint(8)),
             lastPeaks,
             lastPos,
-            lastRoot
+            lastRoot,
+            KeccakHasher.hash
         );
         assertEq(newPos, 8);
 
@@ -445,7 +489,8 @@ contract StatelessMmrLib_Test is Test {
             new bytes32[](0),
             peaks,
             newPos,
-            newRoot
+            newRoot,
+            KeccakHasher.hash
         );
     }
 
@@ -488,7 +533,8 @@ contract StatelessMmrLib_Test is Test {
             toAppend,
             new bytes32[](0),
             0,
-            bytes32(0)
+            bytes32(0),
+            KeccakHasher.hash
         );
 
         bytes32[] memory proof = new bytes32[](3);
@@ -500,16 +546,17 @@ contract StatelessMmrLib_Test is Test {
         peaks[1] = elem[18];
         peaks[2] = elem[19];
 
-        StatelessMmr.verifyProof(8, elem[8], proof, peaks, 19, root);
+        StatelessMmr.verifyProof(8, elem[8], proof, peaks, 19, root, KeccakHasher.hash);
     }
-    
+
     function testVerifyProofInvalidIndex() public {
         bytes32[] memory peaks = new bytes32[](0);
         (uint newPos, bytes32 newRoot) = StatelessMmr.append(
             bytes32(uint(1)),
             peaks,
             0,
-            bytes32(0)
+            bytes32(0),
+            KeccakHasher.hash
         );
         assertEq(newPos, 1);
 
@@ -517,14 +564,7 @@ contract StatelessMmrLib_Test is Test {
         peaks = StatelessMmrHelpers.newArrWithElem(peaks, node1);
 
         vm.expectRevert(IndexOutOfBounds.selector);
-        StatelessMmr.verifyProof(
-            2,
-            bytes32(uint(2)),
-            new bytes32[](0),
-            peaks,
-            newPos,
-            newRoot
-        );
+        this._callVerifyProof(2, bytes32(uint(2)), new bytes32[](0), peaks, newPos, newRoot);
     }
 
     function testVerifyProofInvalidPeaks() public {
@@ -533,7 +573,8 @@ contract StatelessMmrLib_Test is Test {
             bytes32(uint(1)),
             peaks,
             0,
-            bytes32(0)
+            bytes32(0),
+            KeccakHasher.hash
         );
         assertEq(newPos, 1);
 
@@ -541,14 +582,7 @@ contract StatelessMmrLib_Test is Test {
         peaks = StatelessMmrHelpers.newArrWithElem(peaks, invalidNode1);
 
         vm.expectRevert();
-        StatelessMmr.verifyProof(
-            1,
-            bytes32(uint(1)),
-            new bytes32[](0),
-            peaks,
-            newPos,
-            newRoot
-        );
+        this._callVerifyProof(1, bytes32(uint(1)), new bytes32[](0), peaks, newPos, newRoot);
     }
 
     function testVerifyProofInvalidProof() public {
@@ -559,12 +593,13 @@ contract StatelessMmrLib_Test is Test {
             bytes32(uint(2)),
             peaks,
             lastPos,
-            lastRoot
+            lastRoot,
+            KeccakHasher.hash
         );
         assertEq(newPos, 3);
 
         bytes32 node2 = bytes32(uint(2));
-        bytes32 node3= keccak256(abi.encode(node1, node2));
+        bytes32 node3 = keccak256(abi.encode(node1, node2));
         peaks = new bytes32[](1);
         peaks[0] = node3;
 
@@ -572,14 +607,7 @@ contract StatelessMmrLib_Test is Test {
         proof[0] = node3; // Invalid on purpose (should be node1 instead)
 
         vm.expectRevert(InvalidProof.selector);
-        StatelessMmr.verifyProof(
-            2,
-            bytes32(uint(2)),
-            proof,
-            peaks,
-            newPos,
-            newRoot
-        );
+        this._callVerifyProof(2, bytes32(uint(2)), proof, peaks, newPos, newRoot);
     }
 
     function testMmrLibInteroperabilityAppends() public {
@@ -602,7 +630,8 @@ contract StatelessMmrLib_Test is Test {
                 bytes32(uint(i + 1)),
                 updatedPeaks,
                 pos,
-                root
+                root,
+                KeccakHasher.hash
             );
             assertEq(root, rootHashes[i]);
         }
@@ -722,7 +751,7 @@ contract StatelessMmrLib_Test is Test {
                 );
 
             // Verify proof
-            StatelessMmr.verifyProof(index, value, proof, peaks, pos, root);
+            StatelessMmr.verifyProof(index, value, proof, peaks, pos, root, KeccakHasher.hash);
         }
     }
 
@@ -775,7 +804,8 @@ contract StatelessMmrLib_Test is Test {
             randomHashes,
             new bytes32[](0),
             0,
-            0
+            0,
+            KeccakHasher.hash
         );
         assertEq(rootHash, finalRootHash);
     }
@@ -831,7 +861,7 @@ contract StatelessMmrLib_Test is Test {
                 );
 
             // Verify proof
-            StatelessMmr.verifyProof(index, value, proof, peaks, pos, root);
+            StatelessMmr.verifyProof(index, value, proof, peaks, pos, root, KeccakHasher.hash);
         }
     }
 }

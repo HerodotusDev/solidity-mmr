@@ -3,8 +3,11 @@ pragma solidity ^0.8.17;
 
 import "./interfaces/MMRTree.sol";
 import "./lib/StatelessMmr.sol";
+import "./lib/hashers/KeccakHasher.sol";
 
-// This is an example contract on how to use the library
+// This is an example contract demonstrating how to use the library with keccak256 hashing.
+// To use a different hash function (e.g. Poseidon2), import the corresponding hasher from
+// src/lib/hashers/ and pass its `hash` function to every StatelessMmr call.
 contract MMR is MMRTree {
     bytes32 treeRoot; // Root hash of the tree
 
@@ -28,7 +31,8 @@ contract MMR is MMRTree {
                 element,
                 lastPeaks,
                 lastElementsCount,
-                lastRoot
+                lastRoot,
+                KeccakHasher.hash
             );
 
         // Update contract state
@@ -55,7 +59,8 @@ contract MMR is MMRTree {
                     elements[i],
                     nextPeaks,
                     nextElementsCount,
-                    nextRoot
+                    nextRoot,
+                    KeccakHasher.hash
                 );
 
             // Emit event for each appended element
@@ -95,7 +100,8 @@ contract MMR is MMRTree {
             proof,
             peaks,
             elementsCount,
-            root
+            root,
+            KeccakHasher.hash
         );
     }
 }

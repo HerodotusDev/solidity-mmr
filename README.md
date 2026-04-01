@@ -24,10 +24,37 @@ _Note: this library can be directly inlined in your contracts and doesn't need t
 ## Quick Start
 
 ```bash
-    yarn install
+    yarn install   # required for the keccak off-chain interoperability tests
     forge build
-    FOUNDRY_FUZZ_RUNS=10 forge test
+    forge test                          # default: 10 fuzz runs (fast)
+    FOUNDRY_PROFILE=full forge test     # 256 fuzz runs (thorough)
 ```
+
+## Pluggable Hash Functions
+
+All `StatelessMmr` functions accept a `hasher` parameter:
+
+```solidity
+function(bytes32, bytes32) internal pure returns (bytes32)
+```
+
+This lets you choose the hashing algorithm without forking the library.
+Two ready-made implementations are provided in `src/lib/hashers/`:
+
+| File | Algorithm | Use-case |
+|------|-----------|----------|
+| `KeccakHasher.sol` | `keccak256(abi.encode(a, b))` | General-purpose EVM hashing (default) |
+| `Poseidon2Hasher.sol` | Poseidon2 over BN254 (via [poseidon2-evm](https://github.com/zemse/poseidon2-evm)) | ZK-SNARK / ZK-STARK circuits |
+
+Both expose a single function `hash(bytes32 a, bytes32 b) internal pure returns (bytes32)` that
+can be passed directly to any `StatelessMmr` call.
+
+> **Poseidon2 note:** The Poseidon2 implementation operates over the BN254 scalar field.
+> Input values are interpreted as field elements without range checking. For full ZK
+> compatibility, leaf values should be within the BN254 scalar field
+> (< `0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001`).
+> Internal MMR nodes are always valid field elements because Poseidon2 output is
+> reduced modulo the prime.
 
 ## Interface API
 
@@ -52,50 +79,83 @@ interface MMRTree {
 }
 ```
 
-## Usage example
+## Usage examples
 
-```typescript
-contract MMRExample {
-    MMR public mmr;
+### Keccak256 MMR (default)
 
-    constructor() {
-        mmr = new MMR();
+```solidity
+import {StatelessMmr} from "solidity-mmr/src/lib/StatelessMmr.sol";
+import {KeccakHasher} from "solidity-mmr/src/lib/hashers/KeccakHasher.sol";
 
-        // Append a single element
-        mmr.append(keccak256(abi.encodePacked(uint(1))));
+contract MyKeccakMmr {
+    bytes32[] peaks;
+    uint    elementsCount;
+    bytes32 root;
 
-        bytes32[] memory elementsToAppend = new bytes32[](3);
-        elementsToAppend[0] = keccak256(abi.encode(bytes32(uint(2))));
-        elementsToAppend[1] = keccak256(abi.encode(bytes32(uint(3))));
-        elementsToAppend[2] = keccak256(abi.encode(bytes32(uint(4))));
-
-        // Append multiple elements
-        mmr.multiAppend(elementsToAppend);
-
-        // Get the root hash
-        bytes32 rootHash = mmr.getRootHash();
-
-        // Get the number of nodes (i.e., tree size)
-        uint elementsCount = mmr.getElementsCount();
-
-        // ...
+    function append(bytes32 element) external {
+        (elementsCount, root, peaks) = StatelessMmr.appendWithPeaksRetrieval(
+            element, peaks, elementsCount, root, KeccakHasher.hash
+        );
     }
 
-    // Verify an inclusion proof generated off-chain
     function verifyProof(
-        uint index,
-        bytes32 value,
-        bytes32[] memory proof,
-        bytes32[] memory peaks,
-        uint elementsCount,
-        bytes32 root
-    ) public view {
-        mmr.verifyProof(index, value, proof, peaks, elementsCount, root);
+        uint index, bytes32 value,
+        bytes32[] calldata proof, bytes32[] calldata _peaks,
+        uint _elementsCount, bytes32 _root
+    ) external pure {
+        StatelessMmr.verifyProof(
+            index, value, proof, _peaks, _elementsCount, _root,
+            KeccakHasher.hash
+        );
     }
 }
 ```
 
-## Generate a proof
+### Poseidon2 MMR (ZK-friendly)
+
+```solidity
+import {StatelessMmr} from "solidity-mmr/src/lib/StatelessMmr.sol";
+import {Poseidon2Hasher} from "solidity-mmr/src/lib/hashers/Poseidon2Hasher.sol";
+
+contract MyPoseidon2Mmr {
+    bytes32[] peaks;
+    uint    elementsCount;
+    bytes32 root;
+
+    function append(bytes32 element) external {
+        (elementsCount, root, peaks) = StatelessMmr.appendWithPeaksRetrieval(
+            element, peaks, elementsCount, root, Poseidon2Hasher.hash
+        );
+    }
+
+    function verifyProof(
+        uint index, bytes32 value,
+        bytes32[] calldata proof, bytes32[] calldata _peaks,
+        uint _elementsCount, bytes32 _root
+    ) external pure {
+        StatelessMmr.verifyProof(
+            index, value, proof, _peaks, _elementsCount, _root,
+            Poseidon2Hasher.hash
+        );
+    }
+}
+```
+
+### Custom hasher
+
+You can pass any function with the signature
+`function(bytes32, bytes32) internal pure returns (bytes32)`:
+
+```solidity
+function myHasher(bytes32 a, bytes32 b) internal pure returns (bytes32) {
+    return sha256(abi.encode(a, b));
+}
+
+// Then pass it directly:
+StatelessMmr.append(element, peaks, count, root, myHasher);
+```
+
+## Generate a proof (keccak)
 
 In order to generate a proof, the easiest way is to keep track of the MMR state off-chain and
 generate a proof when needed.
@@ -131,26 +191,10 @@ async function main() {
     rootHash: result.rootHash,
   };
   console.log(solidityVerifyProof);
-  // {
-  //     index: '4',
-  //     value: '0x0000000000000000000000000000000000000000000000000000000000000003',
-  //     proof: [
-  //         '0x04cde762ef08b6b6c5ded8e8c4c0b3f4e5c9ad7342c88fcc93681b4588b73f05',
-  //         '0xf11f11f59e71ab2021e5d939a15985d1b329a7515384f5f0b33fe39db58f5bf6'
-  //     ],
-  //     peaks: [
-  //         '0xf11f11f59e71ab2021e5d939a15985d1b329a7515384f5f0b33fe39db58f5bf6',
-  //         '0x83ec6a1f0257b830b5e016457c9cf1435391bf56cc98f369a58a54fe93772465'
-  //     ],
-  //     pos: '4',
-  //     rootHash: '0x9cf52726b5c1f29825fa3757402809afeb76f510e83e95559d9a5504a243b373'
-  // }
 
   // Encode `solidityVerifyProof` as calldata to then call verifyProof function in the contract.
   // Verifying a proof does _not_ cost gas (view function), so it can also be done off-chain.
   // You can take a look at `./helpers/off-chain-mmr.js` for a full example.
-
-  // ...
 }
 
 const numberStringToBytes32 = (numberAsString) =>

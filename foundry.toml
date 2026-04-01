@@ -1,8 +1,26 @@
 [profile.default]
-src = "src"
-out = "out"
-libs = ["lib"]
-ffi = true
-solc = "0.8.19"
+src    = "src"
+out    = "out"
+libs   = ["lib"]
+ffi    = true
+solc   = "0.8.19"
+
+# FFI fuzz tests spawn one Node.js process per run.
+# 10 runs gives good coverage without long waits during development.
+# Override with FOUNDRY_FUZZ_RUNS=N or use `FOUNDRY_PROFILE=full forge test`
+# for the maximum run count (256).
+[profile.default.fuzz]
+runs = 10
+
+# Full profile: higher fuzz coverage, same settings otherwise.
+[profile.full]
+src    = "src"
+out    = "out"
+libs   = ["lib"]
+ffi    = true
+solc   = "0.8.19"
+
+[profile.full.fuzz]
+runs = 256
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

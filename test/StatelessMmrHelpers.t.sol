@@ -6,9 +6,14 @@ import {Test} from "forge-std/Test.sol";
 import {StatelessMmrHelpers} from "../src/lib/StatelessMmrHelpers.sol";
 
 contract StatelessMmrHelpersLib_Test is Test {
+    // External wrappers allow vm.expectRevert to catch reverts from internal library calls
+    function _callGetHeight(uint index) external pure {
+        StatelessMmrHelpers.getHeight(index);
+    }
+
     function testGetHeightRevert() public {
         vm.expectRevert("index must be at least 1");
-        StatelessMmrHelpers.getHeight(0);
+        this._callGetHeight(0);
     }
 
     function testHeight() public {
