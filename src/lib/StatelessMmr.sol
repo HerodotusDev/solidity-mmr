@@ -14,7 +14,7 @@ import "./StatelessMmrHelpers.sol";
 
 ///
 /// @title StatelessMmr -- A Solidity implementation of Merkle Mountain Range
-/// @author Herodotus Ltd
+/// @author Herodotus Dev Ltd
 /// @notice Library for appending bytes32 values (i.e., acting as an accumulator)
 ///         and verifying Merkle inclusion proofs.
 ///

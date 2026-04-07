@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Solidity Merkle Mountain Range library",
   "repository": "git@github.com:HerodotusDev/solidity-mmr.git",
-  "author": "Herodotus Ltd",
+  "author": "Herodotus Dev Ltd",
   "license": "GPL-3.0",
   "private": false,
   "dependencies": {
